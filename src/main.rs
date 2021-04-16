@@ -1,71 +1,81 @@
 use winit::{
-    event::{Event, WindowEvent, KeyboardInput, VirtualKeyCode},
+    event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-    dpi::{Size, PhysicalSize},
+    window::{WindowBuilder},
+    dpi::{Size, LogicalSize},
 };
+use ash::{vk, Entry, version::EntryV1_0};
+use std::error::Error;
+use std::ffi::CString;
 
-const WIDTH : u32 = 800;
-const HEIGHT : u32 = 600;
+// use hello_triangle_application::*;
+// mod hello_triangle_application {
+//     use super::*;
+//     pub struct HelloTriangleApplication {
+//         instance: Instance,
+//     }
+//     impl HelloTriangleApplication {
+//         pub fn new(instance: Instance) -> Self {
+//             HelloTriangleApplication{
+//                 instance
+//             }
+//         }
+//         pub fn run(&mut self) {
+//             self.initVulkan();
+//             self.mainLoop();
+//             self.cleanup();
+//         }
+//         fn initVulkan(&mut self) {
+    
+//         }
+//         fn mainLoop(&mut self) {
+            
+//         }
+//         fn cleanup(&mut self) {
+    
+//         }
+//     }
+// }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
+    //window creation
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-                .with_inner_size(Size::from(PhysicalSize::new(WIDTH, HEIGHT)))
-                .with_title("Trayracer")
+                .with_inner_size(Size::new(LogicalSize{width: 800, height: 600}))
+                .with_title("Vulcan")
                 .with_resizable(false)
-                .build(&event_loop)
-                .expect("Issue initializing window"); //causes immediate panic! on failure, this seems reasonable
+                .build(&event_loop)?;
+    
+    //instance creation
+    let app_info = vk::ApplicationInfo::builder()
+        .application_name(&CString::new("Hello Triangle")?)
+        .application_version(vk::make_version(1, 0, 0))
+        .engine_name(&CString::new("No Engine")?)
+        .engine_version(vk::make_version(1, 0, 0))
+        .api_version(vk::make_version(1, 0, 0))
+        .build();
+    let surface_extensions = ash_window::enumerate_required_extensions(&window)?;
+    let instance_extensions = surface_extensions.iter().map(|ext| ext.as_ptr()).collect::<Vec<_>>();
+    let create_info = vk::InstanceCreateInfo::builder()
+        .application_info(&app_info)
+        .enabled_extension_names(&instance_extensions)
+        .build();
+    let entry = unsafe { Entry::new()? }; 
+    let instance = unsafe { entry.create_instance(&create_info, None)? };
 
+    //app creation
+    //let app = HelloTriangleApplication::new(instance);
+
+    //window loop
     event_loop.run(move |event, _, control_flow| {
-        // ControlFlow::Poll continuously runs the event loop, even if the OS hasn't
-        // dispatched any events. This is ideal for games and similar applications.
-        *control_flow = ControlFlow::Poll;
-
-        // ControlFlow::Wait pauses the event loop if no events are available to process.
-        // This is ideal for non-game applications that only update in response to user
-        // input, and uses significantly less power/CPU time than ControlFlow::Poll.
         *control_flow = ControlFlow::Wait;
 
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
-                ..
-            } => {
-                println!("Window closed; stopping");
-                *control_flow = ControlFlow::Exit
-            },
-            Event::WindowEvent { //custom escape button handling
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        virtual_keycode: Some(VirtualKeyCode::Escape), 
-                        ..
-                    }, 
-                    ..
-                },
-                ..
-            } => {
-                println!("The escape button was pressed; stopping");
-                *control_flow = ControlFlow::Exit
-            },
-            Event::MainEventsCleared => {
-                // Application update code.
-
-                // Queue a RedrawRequested event.
-                //
-                // You only need to call this if you've determined that you need to redraw, in
-                // applications which do not always need to. Applications that redraw continuously
-                // can just render here instead.
-                window.request_redraw();
-            },
-            Event::RedrawRequested(_) => {
-                // Redraw the application.
-                //
-                // It's preferable for applications that do not render continuously to render in
-                // this event rather than in MainEventsCleared, since rendering in here allows
-                // the program to gracefully handle redraws requested by the OS.
-            },
-            _ => ()
+                window_id,
+            } if window_id == window.id() => *control_flow = ControlFlow::Exit,
+            _ => (),
         }
     });
 }
